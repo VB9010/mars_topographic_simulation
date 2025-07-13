@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mars Klíma Evolúció Szimulátor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2.2em;
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .timeline-container {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .current-age {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+
+        .geological-era {
+            font-size: 1.3em;
+            color: #ffd93d;
+            text-align: right;
+        }
+
+        .time-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .time-slider {
+            flex: 1;
+            height: 8px;
+            background: linear-gradient(to right, #ff6b6b, #ffd93d, #4ecdc4, #45b7d1);
+            border-radius: 4px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .time-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #fff;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .play-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .btn.active {
+            background: #4ecdc4;
+            color: #000;
+        }
+
+        .timeline-events {
+            position: relative;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .event-marker {
+            position: absolute;
+            top: 0;
+            width: 3px;
+            height: 100%;
+            background: #ff6b6b;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .event-marker:hover {
+            width: 6px;
+            background: #ff4757;
+        }
+
+        .event-label {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%) rotate(-45deg);
+            font-size: 11px;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 4px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        .map-container {
+            position: relative;
+            background: #1a1a1a;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        #marsCanvas {
+            width: 100%;
+            height: 600px;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .volcano-legend {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .volcano-legend h4 {
+            color: #ffd93d;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .volcano-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .volcano-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .volcano-active { background: #ff6b6b; }
+        .volcano-dormant { background: #ffa500; }
+        .volcano-extinct { background: #666; }
+        .volcano-future { background: rgba(255, 255, 255, 0.3); }
+
+        .era-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+            min-width: 180px;
+        }
+
+        .magnetic-field {
+            position: absolute;
+            top: 80px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+            min-width: 180px;
+        }
+
+        .magnetic-active {
+            color: #00ff00;
+        }
+
+        .magnetic-inactive {
+            color: #ff0000;
+        }
+
+        .climate-stats {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-card h4 {
+            color: #ffd93d;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #4ecdc4;
+            margin-bottom: 5px;
+        }
+
+        .stat-trend {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .environment-description {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .environment-description h3 {
+            color: #ffd93d;
+            margin-bottom: 15px;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: 15px;
+        }
+
+        .speed-display {
+            color: #4ecdc4;
+            font-weight: bold;
+            min-width: 60px;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .tooltip.show {
+            opacity: 1;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🌍 Mars Klíma Evolúció Szimulátor - Frissített Tudományos Adatok</h1>
+    
+    <div class="container">
+        <div class="timeline-container">
+            <div class="timeline-header">
+                <div class="current-age" id="currentAge">4.400 Ga</div>
+                <div class="geological-era" id="geologicalEra">Pre-Noachian</div>
+            </div>
+            
+            <div class="time-controls">
+                <label for="timeSlider" style="color: #aaa; min-width: 100px;">Idő (Ga):</label>
+                <input type="range" id="timeSlider" class="time-slider" min="0" max="4500" step="10" value="4400">
+                <div class="play-controls">
+                    <button class="btn" id="playBtn">▶️ Lejátszás</button>
+                    <button class="btn" id="resetBtn">🔄 Reset</button>
+                    <div class="speed-control">
+                        <label style="color: #aaa;">Sebesség:</label>
+                        <input type="range" id="speedSlider" min="0.1" max="10" step="0.1" value="1" style="width: 80px;">
+                        <span class="speed-display" id="speedDisplay">1.0x</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="timeline-events" id="timelineEvents">
+                <!-- Események dinamikusan generálódnak -->
+            </div>
+            
+            <div id="currentEventDescription" style="font-size: 16px; color: #ffd93d; min-height: 40px; padding: 10px; background: rgba(255,217,61,0.1); border-radius: 8px; border: 1px solid rgba(255,217,61,0.2);"></div>
+        </div>
+
+        <div class="main-grid">
+            <div class="map-container">
+                <canvas id="marsCanvas"></canvas>
+                
+                <div class="volcano-legend">
+                    <h4>🌋 Vulkáni Aktivitás</h4>
+                    <div class="volcano-item">
+                        <div class="volcano-dot volcano-active"></div>
+                        <span>Aktív vulkán</span>
+                    </div>
+                    <div class="volcano-item">
+                        <div class="volcano-dot volcano-dormant"></div>
+                        <span>Szunnyadó</span>
+                    </div>
+                    <div class="volcano-item">
+                        <div class="volcano-dot volcano-extinct"></div>
+                        <span>Kihalt</span>
+                    </div>
+                    <div class="volcano-item">
+                        <div class="volcano-dot volcano-future"></div>
+                        <span>Még nem létezik</span>
+                    </div>
+                </div>
+                
+                <div class="era-indicator">
+                    <h3 id="eraName">Pre-Noachian</h3>
+                    <div id="eraDescription">Forró, olvadt felszín</div>
+                    <div style="margin-top: 10px; font-size: 12px; color: #aaa;" id="eraTimeRange">4.5 - 4.1 Ga</div>
+                </div>
+
+                <div class="magnetic-field">
+                    <h4>🧲 Mágneses Mező</h4>
+                    <div id="magneticStatus" class="magnetic-active">AKTÍV</div>
+                    <div style="font-size: 11px; color: #aaa;">Dinamo hatás</div>
+                </div>
+            </div>
+            
+            <div class="climate-stats">
+                <h3 style="color: #ffd93d; margin-bottom: 20px;">🌡️ Klíma Adatok</h3>
+                
+                <div class="stat-card">
+                    <h4>Globális Hőmérséklet</h4>
+                    <div class="stat-value" id="globalTemp">340 K</div>
+                    <div class="stat-trend" id="tempTrend">+67°C - Forró!</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h4>Légköri Nyomás</h4>
+                    <div class="stat-value" id="atmosPressure">5.0 bar</div>
+                    <div class="stat-trend" id="pressureTrend">Korai vastag légkör</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h4>Vízkészlet</h4>
+                    <div class="stat-value" id="totalWater">0.0%</div>
+                    <div class="stat-trend" id="waterMassTrend">Nincs víz a bolygón</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h4>Légköri Víztartalom</h4>
+                    <div class="stat-value" id="waterContent">8.0 mbar</div>
+                    <div class="stat-trend" id="waterTrend">Gőz formájában</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h4>Vulkáni Aktivitás</h4>
+                    <div class="stat-value" id="volcanicActivity">85%</div>
+                    <div class="stat-trend" id="volcanicTrend">Intenzív kibocsátás</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h4>Óceán Lefedettség</h4>
+                    <div class="stat-value" id="oceanCoverage">0%</div>
+                    <div class="stat-trend" id="oceanTrend">Túl forró a vízhez</div>
+                </div>
+                
+                <div class="environment-description">
+                    <h3>🌍 Környezeti Állapot</h3>
+                    <p id="environmentText">A korai Mars rendkívül forró és vulkánikus. A felszín nagy része olvadt állapotban van, vastag CO₂ légkör borítja a bolygót. Gyakori becsapódások és intenzív vulkáni tevékenység jellemzi ezt az időszakot.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // Globális változók
+        var canvas, ctx, tooltip;
+        var isPlaying = false;
+        var currentTime = 4400;
+        var playSpeed = 1;
+        var animationId;
+        var eventDescriptionTimeout;
+
+        // Geologiai időszakok
+        var geologicalEras = {
+            'Pre-Noachian': { start: 4500, end: 4100, color: '#ff6b6b', description: 'Forró, olvadt felszín' },
+            'Early Noachian': { start: 4100, end: 3900, color: '#ff8e8e', description: 'Hűlés, első óceánok' },
+            'Late Noachian': { start: 3900, end: 3700, color: '#ffd93d', description: 'Klímaoptimum 3.8 Ga!' },
+            'Early Hesperian': { start: 3700, end: 3400, color: '#4ecdc4', description: 'Klíma hanyatlás' },
+            'Late Hesperian': { start: 3400, end: 2000, color: '#45b7d1', description: 'Utolsó folyók' },
+            'Early Amazonian': { start: 2000, end: 1500, color: '#a8a8a8', description: 'Víz korszak vége' },
+            'Middle Amazonian': { start: 1500, end: 500, color: '#888888', description: 'Hideg Mars' },
+            'Late Amazonian': { start: 500, end: 0, color: '#666666', description: 'Mai hideg Mars' }
+        };
+
+        // Vulkánok
+        var volcanoes = {
+            'Olympus Mons': { birth: 200, peak: 100, death: 2, lat: 18.4, lon: -133.9, maxIntensity: 1.0 },
+            'Arsia Mons': { birth: 1500, peak: 800, death: 50, lat: -8.4, lon: -121.1, maxIntensity: 0.9 },
+            'Pavonis Mons': { birth: 1800, peak: 1000, death: 100, lat: 0.8, lon: -112.8, maxIntensity: 0.8 },
+            'Ascraeus Mons': { birth: 2000, peak: 1200, death: 150, lat: 11.8, lon: -104.5, maxIntensity: 0.9 },
+            'Elysium Mons': { birth: 2500, peak: 1500, death: 200, lat: 24.8, lon: 146.9, maxIntensity: 0.8 },
+            'Alba Mons': { birth: 3200, peak: 2000, death: 500, lat: 40.5, lon: -109.9, maxIntensity: 0.6 },
+            'Tharsis Early': { birth: 3900, peak: 3800, death: 3500, lat: 0, lon: -100, maxIntensity: 1.2 },
+            'Noachian Volcanics': { birth: 4100, peak: 3900, death: 3600, lat: -30, lon: 60, maxIntensity: 1.5 }
+        };
+
+        // Frissített események - tudományos kutatások alapján
+        var majorEvents = [
+            { time: 4500, name: 'Mars kialakulása', description: 'Mars kialakulik a protoplanetáris korong anyagából. Forró, olvadt felszín.' },
+            { time: 4450, name: 'Giant Impact', description: 'Hold méretű égitest becsapódása - létrejön a Borealis Basin dichotómia. Phobos és Deimos keletkezése.' },
+            { time: 4300, name: 'Ősi óceán kezdete', description: 'Víz érkezik üstökösökből. Vastitas Borealis medence fokozatos feltöltődése.' },
+            { time: 4200, name: 'Utopia becsapódás', description: 'Utopia Planitia kráter kialakulása (3300 km átmérő). Ejecta újraformálja a felszínt.' },
+            { time: 4100, name: 'Hellas becsapódás', description: 'Hellas Basin létrejön (2300 km átmérő). Déli félgömb újraformálódás.' },
+            { time: 4000, name: 'Tharsis emelkedik', description: 'Tharsis vulkáni dome növekedése. Olympus Mons és Valles Marineris kezdete.' },
+            { time: 3900, name: 'Mágneses mező vége', description: 'Mars globális mágneses mezeje megszűnik. Légkör védelem elvesztése.' },
+            { time: 3800, name: 'KLÍMAOPTIMUM', description: 'Mars aranykor! Sűrű légkör (3-4 bar), melegebb klíma (0-10°C). Óceánok virágzása.' },
+            { time: 3500, name: 'Valles Marineris', description: 'Valles Marineris kanyon rendszer teljes kifejlődése. Tharsis tektonikus aktivitás.' },
+            { time: 3000, name: 'Polar Wander', description: 'Tharsis tömege elforgatja Mars tengelyét. Óceánok befagyása kezdődik.' },
+            { time: 2500, name: 'Utolsó folyók', description: 'Utolsó nagy folyórendszerek: Kasei Valles, Ares Vallis. Sporadikus olvadások.' },
+            { time: 2000, name: 'Víz korszak vége', description: 'Folyékony víz végleg eltűnik a felszínről. Mars száraz sivatag lesz.' },
+            { time: 1800, name: 'Argyre becsapódás', description: 'Argyre Basin (1800 km átmérő) keletkezik. Déli krateres vidék.' },
+            { time: 1000, name: 'Amazonian kor', description: 'Modern Mars korszak kezdete. Hideg, száraz klíma. Sporadikus vulkanizmus.' },
+            { time: 0, name: 'Mai Mars', description: 'Hideg sivatag (-63°C). Vékony légkör (0.006 bar). Víz csak jég formájában.' }
+        ];
+
+        // Frissített klíma számítások - tudományos kutatások alapján
+        function calculateClimateParameters() {
+            var data = {};
+            
+            // Vízkészlet evolúció (bolygó tömeg %-ában) - Frissített timeline
+            if (currentTime > 4300) {
+                data.waterReserves = 0.0;
+            } else if (currentTime > 4000) {
+                data.waterReserves = 0.1 * (currentTime - 4000) / 300;
+            } else if (currentTime > 2000) {
+                // Víz 2.5 milliárd évig volt jelen - NEM 3 milliárd!
+                data.waterReserves = 0.1 + 0.7 * (4000 - currentTime) / 2000;
+            } else if (currentTime > 1500) {
+                // Utolsó víz nyomok
+                data.waterReserves = 0.1 * (currentTime - 1500) / 500;
+            } else {
+                data.waterReserves = 0.0;
+            }
+            
+            // Légköri nyomás evolúció (bar) - Realistikus értékek
+            if (currentTime > 4400) {
+                // Korai magma óceán: 5-10 bar (nem 20!)
+                data.atmosphericPressure = 5.0 + 5.0 * (4500 - currentTime) / 100;
+            } else if (currentTime > 4000) {
+                // Klímaoptimum előtti vastag légkör: 3-5 bar
+                data.atmosphericPressure = 3.0 + 2.0 * (4400 - currentTime) / 400;
+            } else if (currentTime > 3800) {
+                // Klímaoptimum: 3-4 bar (+ H2 kiegészítés)
+                data.atmosphericPressure = 3.0 + 1.0 * (4000 - currentTime) / 200;
+            } else if (currentTime > 3000) {
+                // Fokozatos légkörvesztés: 3 → 1 bar
+                data.atmosphericPressure = 1.0 + 2.0 * (3800 - currentTime) / 800;
+            } else if (currentTime > 2000) {
+                // Még van víz, de vékony légkör: 1 → 0.1 bar
+                data.atmosphericPressure = 0.1 + 0.9 * (3000 - currentTime) / 1000;
+            } else {
+                data.atmosphericPressure = 0.006 + 0.094 * currentTime / 2000;
+            }
+            
+            // Hőmérséklet evolúció (Kelvin) - Realistikus greenhouse hatás
+            var baseTemp = 210; // Mai Mars (-63°C)
+            if (currentTime > 4400) {
+                // Korai Mars: forró magma óceán 300-350K
+                data.temperature = 300 + 50 * (4500 - currentTime) / 100;
+            } else if (currentTime > 4000) {
+                // Melegebb klíma, de nem extrém: 280-300K
+                data.temperature = 280 + 20 * (4400 - currentTime) / 400;
+            } else if (currentTime > 3800) {
+                // Klímaoptimum: 273-283K (0-10°C)
+                data.temperature = 273 + 10 * (4000 - currentTime) / 200;
+            } else if (currentTime > 3000) {
+                // Fokozatos hűlés: 273 → 240K
+                data.temperature = 240 + 33 * (3800 - currentTime) / 800;
+            } else if (currentTime > 2000) {
+                // Víz még létezik, de hidegebb: 240 → 220K
+                data.temperature = 220 + 20 * (3000 - currentTime) / 1000;
+            } else {
+                data.temperature = baseTemp + 10 * currentTime / 2000;
+            }
+            
+            // Vulkáni aktivitás
+            data.volcanicActivity = getGlobalVolcanicActivity();
+            
+            // Légköri víztartalom
+            data.atmosphericWater = 0.001;
+            if (data.waterReserves > 0) {
+                if (data.temperature > 273) {
+                    var evaporationFactor = Math.min(10, (data.temperature - 273) / 10);
+                    data.atmosphericWater = data.waterReserves * 3000 * evaporationFactor + data.volcanicActivity * 0.002;
+                } else {
+                    data.atmosphericWater = data.waterReserves * 100 + data.volcanicActivity * 0.001;
+                }
+            }
+            
+            // Óceán lefedettség
+            data.oceanCoverage = 0;
+            if (data.temperature > 268 && data.waterReserves > 0.001) {
+                if (currentTime >= 3750 && currentTime <= 3850) {
+                    var tempBonus = Math.min(40, data.temperature - 268);
+                    data.oceanCoverage = Math.min(50, data.waterReserves * 10000 + tempBonus * 2);
+                } else if (currentTime > 3600 && currentTime <= 4000) {
+                    var tempBonus = Math.min(30, data.temperature - 268);
+                    data.oceanCoverage = Math.min(40, data.waterReserves * 8000 + tempBonus * 1.5);
+                } else if (currentTime > 2000 && currentTime <= 3600) {
+                    var tempBonus = Math.max(0, data.temperature - 268);
+                    data.oceanCoverage = Math.min(30, data.waterReserves * 6000 + tempBonus);
+                }
+            }
+            
+            return data;
+        }
+
+        function getGlobalVolcanicActivity() {
+            var totalActivity = 0;
+            
+            for (var name in volcanoes) {
+                var volcano = volcanoes[name];
+                if (currentTime <= volcano.birth && currentTime >= volcano.death) {
+                    var lifeDuration = volcano.birth - volcano.death;
+                    var timeSinceBirth = volcano.birth - currentTime;
+                    var timeUntilDeath = currentTime - volcano.death;
+                    
+                    var activity = 0;
+                    if (timeSinceBirth < lifeDuration * 0.3) {
+                        activity = (timeSinceBirth / (lifeDuration * 0.3)) * volcano.maxIntensity;
+                    } else if (timeUntilDeath < lifeDuration * 0.4) {
+                        activity = (timeUntilDeath / (lifeDuration * 0.4)) * volcano.maxIntensity;
+                    } else {
+                        activity = volcano.maxIntensity;
+                    }
+                    
+                    totalActivity += activity;
+                }
+            }
+            
+            return Math.min(100, (totalActivity / 3) * 100);
+        }
+
+        function getCurrentEra() {
+            for (var eraName in geologicalEras) {
+                var era = geologicalEras[eraName];
+                if (currentTime <= era.start && currentTime > era.end) {
+                    return { name: eraName, start: era.start, end: era.end, color: era.color, description: era.description };
+                }
+            }
+            return { name: 'Late Amazonian', start: 500, end: 0, color: '#666666', description: 'Mai hideg Mars' };
+        }
+
+        function getVolcanoState(volcano) {
+            if (currentTime > volcano.birth) {
+                return 'future';
+            } else if (currentTime < volcano.death) {
+                return 'extinct';
+            } else {
+                var lifeDuration = volcano.birth - volcano.death;
+                var currentAge = volcano.birth - currentTime;
+                var lifePhase = currentAge / lifeDuration;
+                
+                if (lifePhase < 0.2 || lifePhase > 0.8) {
+                    return 'dormant';
+                } else {
+                    return 'active';
+                }
+            }
+        }
+
+        function getSimpleElevation(lon, lat) {
+            var elevation = 0;
+            
+            // POLAR WANDER - Tharsis felépülésével a bolygó elfordul
+            var adjustedLon = lon;
+            var adjustedLat = lat;
+            
+            if (currentTime <= 3800) {
+                var wanderProgress = currentTime <= 2000 ? 1 : (3800 - currentTime) / 1800;
+                var wanderAngle = wanderProgress * 30;
+                adjustedLat = lat - wanderAngle * Math.sin((lon + 100) * Math.PI / 180) * 0.5;
+                adjustedLon = lon + wanderAngle * Math.cos((lat) * Math.PI / 180) * 0.3;
+            }
+            
+            // Alapszint - részletes felszín textúra
+            elevation += Math.sin(lon * 0.02) * Math.cos(lat * 0.02) * 800;
+            elevation += Math.sin(lon * 0.05) * Math.cos(lat * 0.05) * 400;
+            elevation += Math.sin(lon * 0.1) * Math.cos(lat * 0.1) * 200;
+            elevation += Math.sin(lon * 0.2) * Math.cos(lat * 0.2) * 100;
+            
+            // Giant Impact - 4.45 Ga - a legnagyobb esemény!
+            if (currentTime <= 4450) {
+                var impactStrength = 1.0;
+                if (currentTime > 4400) {
+                    impactStrength = (4450 - currentTime) / 50;
+                }
+                
+                // Óriási Borealis Basin - Mars felszínének 40%-a
+                var borealisLat = adjustedLat - 45;
+                var borealisLon = adjustedLon;
+                var dBorealis = Math.sqrt(borealisLon * borealisLon + borealisLat * borealisLat);
+                
+                if (dBorealis < 120) {
+                    var depthFactor = 1 - (dBorealis / 120);
+                    elevation -= 6000 * impactStrength * depthFactor * depthFactor;
+                }
+            }
+            
+            // 1. UTOPIA PLANITIA - Óriási becsapódás 4.2 Ga
+            var dUtopia = Math.sqrt((adjustedLon - 118)*(adjustedLon - 118) + (adjustedLat - 49.7)*(adjustedLat - 49.7));
+            if (currentTime <= 4200 && dUtopia < 60) {
+                var impactAge = 4200 - currentTime;
+                var depthFactor = 1;
+                if (impactAge < 300) {
+                    depthFactor = 2.5 - (impactAge / 600);
+                }
+                
+                // Központi mély kráter
+                if (dUtopia < 40) {
+                    elevation -= 5000 * depthFactor * Math.exp((-dUtopia * dUtopia) / 800);
+                }
+                
+                // Perem kiemelkedés
+                if (dUtopia > 35 && dUtopia < 50) {
+                    var rimHeight = 1500 * depthFactor * Math.exp(-Math.pow(dUtopia - 42.5, 2) / 50);
+                    elevation += rimHeight;
+                }
+            }
+            
+            // 2. HELLAS PLANITIA - Óriási becsapódás medence
+            var dHellas = Math.sqrt((lon - 70)*(lon - 70) + (lat + 42)*(lat + 42));
+            if (currentTime <= 4100 && dHellas < 35) {
+                var impactAge = 4100 - currentTime;
+                var depthFactor = 1;
+                if (impactAge < 200) {
+                    depthFactor = 1.8 - (impactAge / 400);
+                }
+                
+                // Központi mély rész
+                if (dHellas < 25) {
+                    elevation -= 8000 * depthFactor * Math.exp((-dHellas * dHellas) / 300);
+                }
+                
+                // Koncentrikus gyűrűk
+                if (dHellas > 20 && dHellas < 30) {
+                    var ringHeight = 1000 * depthFactor * Math.exp(-Math.pow(dHellas - 25, 2) / 25);
+                    elevation += ringHeight;
+                }
+            }
+            
+            // 3. THARSIS RISE - Óriási vulkáni dome
+            var tharsisLon = -100;
+            var tharsisLat = 0;
+            
+            if (currentTime > 3000) {
+                tharsisLat = 30 - (3800 - currentTime) / 1800 * 30;
+            }
+            
+            var dTharsis = Math.sqrt((lon - tharsisLon)*(lon - tharsisLon) + (lat - tharsisLat)*(lat - tharsisLat));
+            if (dTharsis < 80) {
+                var tharsisStrength = 0;
+                
+                if (currentTime <= 3800 && currentTime >= 2000) {
+                    var buildTime = 3800 - currentTime;
+                    var totalBuildTime = 3800 - 2000;
+                    tharsisStrength = Math.min(1, buildTime / totalBuildTime);
+                    tharsisStrength = 1 / (1 + Math.exp(-5 * (tharsisStrength - 0.5)));
+                } else if (currentTime < 2000) {
+                    tharsisStrength = 1;
+                }
+                
+                // Központi dome
+                var baseHeight = 10000 * tharsisStrength;
+                elevation += baseHeight * Math.exp((-dTharsis * dTharsis) / 2500);
+            }
+            
+            // 4. VALLES MARINERIS - Komplex kanyonrendszer
+            if (currentTime <= 3500) {
+                var dValles = Math.abs(lat + 14);
+                var lonValles = Math.abs(lon + 59.2);
+                
+                if (lonValles < 50 && dValles < 12) {
+                    var vallesAge = 3500 - currentTime;
+                    var vallesDepth = Math.min(1, vallesAge / 500);
+                    
+                    // Főkanyon
+                    if (lonValles < 40 && dValles < 8) {
+                        var canyonInfluence = (1 - dValles / 8) * (1 - lonValles / 40);
+                        elevation -= 7000 * vallesDepth * canyonInfluence;
+                    }
+                }
+            }
+            
+            return elevation;
+        }
+
+        function getElevationColor(elevation, climate, lat, lon) {
+            var oceanLevel = -3000;
+            
+            if (currentTime >= 3750 && currentTime <= 3850) {
+                oceanLevel = -200 + (climate.oceanCoverage * 20);
+            } else if (currentTime > 3600 && currentTime <= 4000) {
+                oceanLevel = -600 + (climate.oceanCoverage * 15);
+            } else if (currentTime > 2000 && currentTime <= 3600) {
+                oceanLevel = -1000 + (climate.oceanCoverage * 12);
+            }
+            
+            // Jégsapka dinamika
+            var iceCaps = Math.max(0, 35 - (climate.temperature - 200) * 0.4);
+            
+            if (Math.abs(lat) > (90 - iceCaps) && climate.temperature < 270) {
+                return 'rgb(240, 248, 255)';
+            }
+            
+            // Óceán ellenőrzés - északi medencék
+            var isNorthernLowlands = lat > 0 && elevation < oceanLevel;
+            var isUtopiaRegion = lat > 20 && Math.abs(lon - 118) < 70 && elevation < oceanLevel;
+            var isAcidaliaRegion = lat > 25 && lon > -50 && lon < 30 && elevation < oceanLevel;
+            var isChrysePlanitia = lat > 10 && lat < 40 && lon > -70 && lon < -10 && elevation < oceanLevel;
+            var isVastitasBorealis = lat > 40 && elevation < oceanLevel;
+            
+            // Óceán megjelenítés
+            if (climate.temperature > 268 && climate.oceanCoverage > 0.5 && climate.waterReserves > 0.001) {
+                if (isNorthernLowlands || isUtopiaRegion || isAcidaliaRegion || isChrysePlanitia || isVastitasBorealis) {
+                    var depth = Math.max(0, (oceanLevel - elevation) / 800);
+                    var waveEffect = Math.sin((lon * 0.3 + lat * 0.2 + currentTime * 0.02) * Math.PI) * 3;
+                    
+                    var blue = Math.min(255, 140 + depth * 60 + waveEffect);
+                    var green = Math.min(180, 100 + depth * 40 - waveEffect);
+                    var red = Math.max(0, 20 - depth * 10);
+                    
+                    return 'rgb(' + Math.floor(red) + ', ' + Math.floor(green) + ', ' + Math.floor(blue) + ')';
+                }
+            }
+            
+            // Folyók és tavak
+            if (climate.waterReserves > 0.003 && climate.temperature > 270 && currentTime > 3600 && currentTime < 2000) {
+                var riverSystem = checkRiverSystem(lon, lat);
+                if (riverSystem) {
+                    return 'rgb(60, 110, 170)';
+                }
+            }
+            
+            // Részletes szárazföld színezés
+            var moistureFactor = Math.min(1, climate.waterReserves * 50);
+            var temperatureFactor = Math.max(0, Math.min(1, (climate.temperature - 250) / 50));
+            
+            // Magassági színskála
+            if (elevation < -5000) {
+                var r = 40 + moistureFactor * 30;
+                var g = 25 + moistureFactor * 35;
+                var b = 15 + moistureFactor * 25;
+                return 'rgb(' + Math.floor(r) + ', ' + Math.floor(g) + ', ' + Math.floor(b) + ')';
+            } else if (elevation < -3000) {
+                var r = 60 + moistureFactor * 40 + temperatureFactor * 20;
+                var g = 35 + moistureFactor * 50 + temperatureFactor * 30;
+                var b = 20 + moistureFactor * 35 + temperatureFactor * 15;
+                return 'rgb(' + Math.floor(r) + ', ' + Math.floor(g) + ', ' + Math.floor(b) + ')';
+            } else if (elevation < -1500) {
+                var r = 80 + moistureFactor * 50 + temperatureFactor * 30;
+                var g = 50 + moistureFactor * 60 + temperatureFactor * 40;
+                var b = 30 + moistureFactor * 40 + temperatureFactor * 25;
+                return 'rgb(' + Math.floor(r) + ', ' + Math.floor(g) + ', ' + Math.floor(b) + ')';
+            } else if (elevation < 0) {
+                var r = 100 + moistureFactor * 40 + temperatureFactor * 30;
+                var g = 70 + moistureFactor * 60 + temperatureFactor * 50;
+                var b = 45 + moistureFactor * 40 + temperatureFactor * 30;
+                return 'rgb(' + Math.floor(r) + ', ' + Math.floor(g) + ', ' + Math.floor(b) + ')';
+            } else if (elevation < 1000) {
+                var r = 120 + moistureFactor * 35 + temperatureFactor * 25;
+                var g = 85 + moistureFactor * 55 + temperatureFactor * 45;
+                var b = 55 + moistureFactor * 35 + temperatureFactor * 25;
+                return 'rgb(' + Math.floor(r) + ', ' + Math.floor(g) + ', ' + Math.floor(b) + ')';
+            } else if (elevation < 3000) {
+                var r = 140 + moistureFactor * 30 + temperatureFactor * 25;
+                var g = 105 + moistureFactor * 50 + temperatureFactor * 45;
+                var b = 70 + moistureFactor * 30 + temperatureFactor * 25;
+                return 'rgb(' + Math.floor(r) + ', ' + Math.floor(g) + ', ' + Math.floor(b) + ')';
+            } else if (elevation < 6000) {
+                var r = 160 + temperatureFactor * 20 - moistureFactor * 10;
+                var g = 125 + temperatureFactor * 30 + moistureFactor * 20;
+                var b = 85 + temperatureFactor * 20 + moistureFactor * 10;
+                return 'rgb(' + Math.floor(r) + ', ' + Math.floor(g) + ', ' + Math.floor(b) + ')';
+            } else if (elevation < 10000) {
+                var r = 180 + temperatureFactor * 15 - moistureFactor * 15;
+                var g = 145 + temperatureFactor * 25 + moistureFactor * 15;
+                var b = 105 + temperatureFactor * 15 + moistureFactor * 5;
+                return 'rgb(' + Math.floor(r) + ', ' + Math.floor(g) + ', ' + Math.floor(b) + ')';
+            } else {
+                var r = 200 + temperatureFactor * 10 - moistureFactor * 20;
+                var g = 170 + temperatureFactor * 20 + moistureFactor * 10;
+                var b = 130 + temperatureFactor * 10 + moistureFactor * 0;
+                return 'rgb(' + Math.floor(r) + ', ' + Math.floor(g) + ', ' + Math.floor(b) + ')';
+            }
+        }
+
+        function checkRiverSystem(lon, lat) {
+            // Chryse Planitia drainage - Valles Marineris vize
+            if (currentTime <= 3400) {
+                var dChryseDrainage = Math.sqrt((lon + 25)*(lon + 25) + (lat - 25)*(lat - 25));
+                if (dChryseDrainage < 15) return true;
+            }
+            
+            // Kasei Valles - óriási áradási csatorna
+            if (currentTime <= 3200) {
+                if (lat > 20 && lat < 28 && lon > -80 && lon < -50) return true;
+            }
+            
+            // Ares Vallis - Pathfinder leszállóhely
+            if (currentTime <= 3100) {
+                if (lat > 8 && lat < 12 && lon > -28 && lon < -20) return true;
+            }
+            
+            // Mangala Valles
+            if (currentTime <= 3300) {
+                if (lat > -10 && lat < -5 && lon > -152 && lon < -148) return true;
+            }
+            
+            return false;
+        }
+
+        function setupCanvas() {
+            var container = canvas.parentElement;
+            var rect = container.getBoundingClientRect();
+            
+            canvas.style.width = '100%';
+            canvas.style.height = '600px';
+            
+            var width = rect.width || 1200;
+            var height = 600;
+            var dpr = window.devicePixelRatio || 1;
+            
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(dpr, dpr);
+        }
+
+        function drawMars() {
+            var width = canvas.clientWidth;
+            var height = canvas.clientHeight;
+            
+            ctx.fillStyle = '#0f0f0f';
+            ctx.fillRect(0, 0, width, height);
+            
+            var climate = calculateClimateParameters();
+            var resolution = 3;
+            
+            for (var y = 0; y < height; y += resolution) {
+                for (var x = 0; x < width; x += resolution) {
+                    var lon = (x / width * 360) - 180;
+                    var lat = 90 - (y / height * 180);
+                    
+                    var elevation = getSimpleElevation(lon, lat);
+                    var color = getElevationColor(elevation, climate, lat, lon);
+                    
+                    ctx.fillStyle = color;
+                    ctx.fillRect(x, y, resolution, resolution);
+                }
+            }
+            
+            drawVolcanoes();
+            drawFeatureLabels();
+        }
+
+        function drawVolcanoes() {
+            ctx.save();
+            
+            for (var name in volcanoes) {
+                var volcano = volcanoes[name];
+                var x = ((volcano.lon + 180) / 360) * canvas.clientWidth;
+                var y = ((90 - volcano.lat) / 180) * canvas.clientHeight;
+                
+                var state = getVolcanoState(volcano);
+                
+                var color, size;
+                if (state === 'active') {
+                    color = '#ff6b6b';
+                    size = 12;
+                    // Glow effekt
+                    ctx.globalAlpha = 0.6;
+                    var gradient = ctx.createRadialGradient(x, y, 0, x, y, size * 2);
+                    gradient.addColorStop(0, 'rgba(255, 107, 107, 0.8)');
+                    gradient.addColorStop(1, 'rgba(255, 107, 107, 0)');
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size * 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                } else if (state === 'dormant') {
+                    color = '#ffa500';
+                    size = 8;
+                } else if (state === 'extinct') {
+                    color = '#666';
+                    size = 6;
+                } else if (state === 'future') {
+                    continue;
+                }
+                
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Vulkán név
+                if (size > 8) {
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(name.replace(' Mons', ''), x, y - size - 5);
+                }
+            }
+            
+            ctx.restore();
+        }
+
+        function drawFeatureLabels() {
+            ctx.save();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            
+            var features = [];
+            
+            // Utopia Planitia - 4.2 Ga után (Borealis medence része)
+            if (currentTime <= 4200) {
+                features.push({ name: 'Utopia Planitia', lon: 118.0, lat: 49.7, color: '#87CEEB', size: 16 });
+            }
+            
+            // Hellas Planitia - 4.1 Ga után
+            if (currentTime <= 4100) {
+                features.push({ name: 'Hellas Planitia', lon: 70.0, lat: -42.7, color: '#add8e6', size: 16 });
+            }
+            
+            // Argyre Planitia - 3.9 Ga után  
+            if (currentTime <= 3900) {
+                features.push({ name: 'Argyre Planitia', lon: -43.8, lat: -49.7, color: '#add8e6', size: 14 });
+            }
+            
+            // Valles Marineris - 3.5 Ga után
+            if (currentTime <= 3500) {
+                features.push({ name: 'Valles Marineris', lon: -59.2, lat: -14.0, color: '#daa520', size: 15 });
+            }
+            
+            // Tharsis Rise - pozíció változik a polar wander miatt
+            if (currentTime <= 3800) {
+                var tharsisProgress = Math.min(1, (3800 - currentTime) / 1800);
+                if (tharsisProgress > 0.2) {
+                    var tharsisLat = 0;
+                    if (currentTime > 3000) {
+                        tharsisLat = 30 - (3800 - currentTime) / 1800 * 30;
+                    }
+                    
+                    var labelText = currentTime > 3000 ? 'Tharsis Rise (vándorol)' : 'Tharsis Rise';
+                    features.push({ name: labelText, lon: -100.0, lat: tharsisLat, color: '#ff6b6b', size: 18 });
+                }
+            }
+            
+            // Acidalia Planitia - északi síkság része, dichotómia után
+            if (currentTime <= 3800) {
+                features.push({ name: 'Acidalia Planitia', lon: -21.0, lat: 49.8, color: '#87CEEB', size: 15 });
+            }
+            
+            // Chryse Planitia - Viking 1 leszállóhelye
+            if (currentTime <= 3600) {
+                features.push({ name: 'Chryse Planitia', lon: -22.0, lat: 22.0, color: '#b8860b', size: 14 });
+            }
+            
+            for (var i = 0; i < features.length; i++) {
+                var feature = features[i];
+                var x = ((feature.lon + 180) / 360) * canvas.clientWidth;
+                var y = ((90 - feature.lat) / 180) * canvas.clientHeight;
+                
+                var size = feature.size || 14;
+                ctx.font = 'bold ' + size + 'px Arial';
+                
+                // Nagyobb kontraszt érdekében dupla kontúr
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+                ctx.lineWidth = 4;
+                ctx.strokeText(feature.name, x, y);
+                
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.strokeText(feature.name, x, y);
+                
+                // Fő szöveg
+                ctx.fillStyle = feature.color;
+                ctx.fillText(feature.name, x, y);
+                
+                // Kicsi pont a helymegjelöléshez
+                ctx.fillStyle = feature.color;
+                ctx.beginPath();
+                ctx.arc(x, y + size + 5, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            ctx.restore();
+        }
+
+        function createTimeline() {
+            var container = document.getElementById('timelineEvents');
+            
+            for (var i = 0; i < majorEvents.length; i++) {
+                var event = majorEvents[i];
+                var marker = document.createElement('div');
+                marker.className = 'event-marker';
+                
+                if (event.name === 'KLÍMAOPTIMUM') {
+                    marker.style.background = '#ffd93d';
+                    marker.style.width = '5px';
+                    marker.style.boxShadow = '0 0 10px #ffd93d';
+                } else if (event.name === 'Giant Impact') {
+                    marker.style.background = '#ff0000';
+                    marker.style.width = '6px';
+                    marker.style.boxShadow = '0 0 12px #ff0000';
+                }
+                
+                var position = ((4500 - event.time) / 4500) * 100;
+                marker.style.left = position + '%';
+                
+                var label = document.createElement('div');
+                label.className = 'event-label';
+                label.textContent = event.name;
+                marker.appendChild(label);
+                
+                // Closure a proper event binding-hoz
+                (function(currentEvent) {
+                    marker.addEventListener('mouseenter', function() {
+                        if (eventDescriptionTimeout) {
+                            clearTimeout(eventDescriptionTimeout);
+                        }
+                        
+                        document.getElementById('currentEventDescription').textContent = 
+                            currentEvent.time + ' Ma: ' + currentEvent.description;
+                        
+                        eventDescriptionTimeout = setTimeout(function() {
+                            document.getElementById('currentEventDescription').textContent = '';
+                        }, 5000);
+                    });
+                    
+                    marker.addEventListener('mouseleave', function() {
+                        if (eventDescriptionTimeout) {
+                            clearTimeout(eventDescriptionTimeout);
+                        }
+                        eventDescriptionTimeout = setTimeout(function() {
+                            document.getElementById('currentEventDescription').textContent = '';
+                        }, 2000);
+                    });
+                    
+                    marker.addEventListener('click', function() {
+                        currentTime = currentEvent.time;
+                        document.getElementById('timeSlider').value = currentTime;
+                        updateDisplay();
+                        
+                        if (eventDescriptionTimeout) {
+                            clearTimeout(eventDescriptionTimeout);
+                        }
+                        document.getElementById('currentEventDescription').textContent = 
+                            currentEvent.time + ' Ma: ' + currentEvent.description;
+                        eventDescriptionTimeout = setTimeout(function() {
+                            document.getElementById('currentEventDescription').textContent = '';
+                        }, 8000);
+                    });
+                })(event);
+                
+                container.appendChild(marker);
+            }
+        }
+
+        function updateDisplay() {
+            var climate = calculateClimateParameters();
+            var era = getCurrentEra();
+            
+            document.getElementById('currentAge').textContent = (currentTime / 1000).toFixed(3) + ' Ga';
+            document.getElementById('geologicalEra').textContent = era.name;
+            
+            document.getElementById('eraName').textContent = era.name;
+            document.getElementById('eraDescription').textContent = era.description;
+            document.getElementById('eraTimeRange').textContent = 
+                (era.start/1000).toFixed(1) + ' - ' + (era.end/1000).toFixed(1) + ' Ga';
+            
+            // Mágneses mező állapot - frissített: 3.9 Ga-ig
+            var magneticStatus = document.getElementById('magneticStatus');
+            if (currentTime > 3900) {
+                magneticStatus.textContent = 'AKTÍV';
+                magneticStatus.className = 'magnetic-active';
+            } else {
+                magneticStatus.textContent = 'INAKTÍV';
+                magneticStatus.className = 'magnetic-inactive';
+            }
+            
+            document.getElementById('globalTemp').textContent = climate.temperature.toFixed(1) + ' K';
+            document.getElementById('tempTrend').textContent = 
+                (climate.temperature > 273 ? '+' : '') + (climate.temperature - 273.15).toFixed(1) + '°C';
+            
+            document.getElementById('atmosPressure').textContent = climate.atmosphericPressure.toFixed(2) + ' bar';
+            document.getElementById('pressureTrend').textContent = 
+                climate.atmosphericPressure > 1 ? 'Vastag légkör' : 'Vékony légkör';
+            
+            document.getElementById('totalWater').textContent = (climate.waterReserves * 100).toFixed(2) + '%';
+            document.getElementById('waterMassTrend').textContent = 
+                climate.waterReserves > 0.005 ? 'Gazdag vízkészlet' : 'Nincs víz a bolygón';
+            
+            document.getElementById('waterContent').textContent = climate.atmosphericWater.toFixed(1) + ' mbar';
+            document.getElementById('waterTrend').textContent = 
+                climate.atmosphericWater > 10 ? 'Párás légkör' : 'Száraz légkör';
+            
+            document.getElementById('volcanicActivity').textContent = climate.volcanicActivity.toFixed(0) + '%';
+            document.getElementById('volcanicTrend').textContent = 
+                climate.volcanicActivity > 50 ? 'Intenzív aktivitás' : 'Alacsony aktivitás';
+            
+            document.getElementById('oceanCoverage').textContent = climate.oceanCoverage.toFixed(0) + '%';
+            document.getElementById('oceanTrend').textContent = 
+                climate.oceanCoverage > 0 ? 'Folyékony víz létezik' : 'Nincs folyékony víz';
+            
+            updateEnvironmentDescription(climate);
+            drawMars();
+        }
+
+        function updateEnvironmentDescription(climate) {
+            var description = '';
+            
+            if (currentTime > 4450) {
+                description = 'Korai Mars: Forró magma óceán (' + climate.atmosphericPressure.toFixed(1) + ' bar). Katasztrofális kigazolás.';
+            } else if (currentTime > 4400) {
+                description = 'GIANT IMPACT! Hold méretű égitest becsapódik - kialakul a Borealis Basin dichotómia. Phobos és Deimos keletkezik a törmelék korongból.';
+            } else if (currentTime > 4000) {
+                description = 'Klímaoptimum előtt: Sűrű CO2 légkör (' + climate.atmosphericPressure.toFixed(1) + ' bar). Óceánok kialakulása.';
+            } else if (currentTime > 3850) {
+                description = 'A Mars a klímaoptimum felé halad. Hőmérséklet: ' + (climate.temperature-273).toFixed(0) + '°C. Vastag légkör, vízkészlet: ' + (climate.waterReserves*100).toFixed(1) + '%.';
+            } else if (currentTime >= 3750 && currentTime <= 3850) {
+                description = 'KLÍMAOPTIMUM: Meleg klíma (0-10°C), 3-4 bar CO2 + H2. Óceánok virágzása! Vízkészlet: ' + (climate.waterReserves*100).toFixed(1) + '% - Mars aranykor.';
+            } else if (currentTime > 3000) {
+                description = 'Noachian: Még mindig lakható klíma (' + climate.atmosphericPressure.toFixed(1) + ' bar). Folyók és tavak. Polar wander folyamatban.';
+            } else if (currentTime > 2500) {
+                description = 'Késő Noachian: Hűlő klíma (' + climate.atmosphericPressure.toFixed(1) + ' bar). Sporadikus olvadások. Tharsis elforgatja a bolygót.';
+            } else if (currentTime > 2000) {
+                description = 'Hesperian: Utolsó folyók (' + climate.atmosphericPressure.toFixed(2) + ' bar). Víz fokozatos eltűnése. Kasei, Ares, Mangala Valles.';
+            } else if (currentTime > 1000) {
+                description = 'Késő Hesperian: Száraz Mars kezdete. Folyékony víz végleg eltűnt. Só-nyomok, sporadikus vulkanizmus.';
+            } else {
+                description = 'Amazonian: Modern Mars. Hideg sivatag, vékony légkör (0.006 bar). Víz csak jég formájában.';
+            }
+            
+            document.getElementById('environmentText').textContent = description;
+        }
+
+        function togglePlayback() {
+            var btn = document.getElementById('playBtn');
+            
+            if (isPlaying) {
+                isPlaying = false;
+                btn.textContent = '▶️ Lejátszás';
+                btn.classList.remove('active');
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+            } else {
+                isPlaying = true;
+                btn.textContent = '⏸️ Megállítás';
+                btn.classList.add('active');
+                animate();
+            }
+        }
+
+        function animate() {
+            if (!isPlaying) return;
+            
+            currentTime -= playSpeed * 1;
+            
+            if (currentTime <= 0) {
+                currentTime = 0;
+                togglePlayback();
+            }
+            
+            document.getElementById('timeSlider').value = currentTime;
+            updateDisplay();
+            
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function resetSimulation() {
+            currentTime = 4400;
+            document.getElementById('timeSlider').value = currentTime;
+            if (isPlaying) {
+                togglePlayback();
+            }
+            updateDisplay();
+        }
+
+        function handleMouseMove(e) {
+            var rect = canvas.getBoundingClientRect();
+            var x = e.clientX - rect.left;
+            var y = e.clientY - rect.top;
+            
+            var lon = (x / canvas.clientWidth * 360) - 180;
+            var lat = 90 - (y / canvas.clientHeight * 180);
+            
+            var elevation = getSimpleElevation(lon, lat);
+            var climate = calculateClimateParameters();
+            
+            tooltip.innerHTML = 
+                '<strong>Koordináták:</strong> ' + lat.toFixed(1) + '°, ' + lon.toFixed(1) + '°<br>' +
+                '<strong>Magasság:</strong> ' + elevation.toFixed(0) + ' m<br>' +
+                '<strong>Hőmérséklet:</strong> ' + climate.temperature.toFixed(1) + ' K<br>' +
+                '<strong>Idő:</strong> ' + (currentTime/1000).toFixed(3) + ' Ga';
+            
+            tooltip.style.left = (e.clientX + 15) + 'px';
+            tooltip.style.top = (e.clientY - 80) + 'px';
+            tooltip.classList.add('show');
+        }
+
+        function init() {
+            canvas = document.getElementById('marsCanvas');
+            ctx = canvas.getContext('2d');
+            tooltip = document.getElementById('tooltip');
+            
+            setupCanvas();
+            createTimeline();
+            updateDisplay();
+            
+            document.getElementById('timeSlider').addEventListener('input', function(e) {
+                currentTime = parseFloat(e.target.value);
+                updateDisplay();
+            });
+            
+            document.getElementById('playBtn').addEventListener('click', togglePlayback);
+            document.getElementById('resetBtn').addEventListener('click', resetSimulation);
+            
+            document.getElementById('speedSlider').addEventListener('input', function(e) {
+                playSpeed = parseFloat(e.target.value);
+                document.getElementById('speedDisplay').textContent = playSpeed.toFixed(1) + 'x';
+            });
+            
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseleave', function() {
+                tooltip.classList.remove('show');
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+
+        window.addEventListener('resize', function() {
+            setupCanvas();
+            drawMars();
+        });
+    </script>
+</body>
+</html>
